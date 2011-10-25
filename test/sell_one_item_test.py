@@ -1,18 +1,21 @@
-from mock import Mock
 from flexmock import *
+from abc import abstractmethod
 
 class Price:
   def euro(value):
     return Price(value)
 
   def __init__(self, value):
-    self.__value = value
+    self.value = value
 
   def __eq__(self, other):
-    return True
+    if isinstance(other, Price):
+      return self.value == other.value
+    else:
+      return False
 
   def __str__(self):
-    return "€%d" % self.__value
+    return "€%d" % self.value
 
 class SaleController:
   def __init__(self, catalog, display):
@@ -58,4 +61,62 @@ class TestSellOneItem:
     display.should_receive("display_empty_barcode_message").once
 
     sale_controller.on_barcode("")
+
+
+class InMemoryCatalog:
+  def __init__(self, prices_by_barcode):
+    self.prices_by_barcode = prices_by_barcode
+
+  def find_price(self, barcode):
+    if barcode in self.prices_by_barcode:
+      return self.prices_by_barcode[barcode]
+    else:
+      return None
+
+class SubclassResponsibility(BaseException):
+  pass
+
+class CatalogContract:
+  @abstractmethod
+  def catalog_with(self, barcode, price):
+    raise SubclassResponsibility()
+
+  @abstractmethod
+  def catalog_without(self, barcode):
+    raise SubclassResponsibility()
+
+  def test_known_product(self):
+    catalog = self.catalog_with("29384", Price.euro(24))
+    assert Price.euro(24) == catalog.find_price("29384")
+
+  def test_unknown_product(self):
+    catalog = self.catalog_without("23948")
+    assert not catalog.find_price("23948")
+
+class TestInMemoryCatalog(CatalogContract):
+  def catalog_with(self, barcode, price):
+    return InMemoryCatalog(prices_by_barcode = {barcode: price})
+
+  def catalog_without(self, barcode):
+    return InMemoryCatalog({})
+
+class TestDictionary:
+  def test_lookup(self):
+    assert 1 == {"a": 1}["a"]
+
+  def test_key_not_present(self):
+    assert not "b" in {"a": 1}
+
+class TestPriceEquals:
+  def test_equal(self):
+    assert Price.euro(24) == Price.euro(24)
+
+  def test_not_equal(self):
+    assert Price.euro(25) != Price.euro(24)
+
+  def test_none(self):
+    assert Price.euro(0) != None
+
+  def test_not_a_price(self):
+    assert Price.euro(1) != 1
 
