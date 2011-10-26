@@ -1,5 +1,7 @@
 from flexmock import *
 from abc import abstractmethod
+from io import StringIO
+from nose.tools import *
 
 class Price:
   def euro(value):
@@ -99,6 +101,36 @@ class TestInMemoryCatalog(CatalogContract):
 
   def catalog_without(self, barcode):
     return InMemoryCatalog({})
+
+class Display:
+  def __init__(self, io):
+    self.io = io
+
+  def display_price(self, price):
+    self.io.write("%d€" % price.value)
+
+  def display_product_not_found_message(self, barcode):
+    self.io.write("Product not found for %s" % barcode)
+
+  def display_empty_barcode_message(self):
+    self.io.write("Scanning error: empty barcode")
+
+class TestConsoleDisplay:
+  def setUp(self):
+    self.io = StringIO()
+    self.display = Display(self.io)
+
+  def test_display_price(self):
+    self.display.display_price(Price.euro(24))
+    eq_("24€", self.io.getvalue())
+
+  def test_display_product_not_found_message(self):
+    self.display.display_product_not_found_message("1323242")
+    eq_("Product not found for 1323242", self.io.getvalue())
+
+  def test_display_empty_barcode_message(self):
+    self.display.display_empty_barcode_message()
+    eq_("Scanning error: empty barcode", self.io.getvalue())
 
 class TestDictionary:
   def test_lookup(self):
